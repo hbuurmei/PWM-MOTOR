@@ -33,7 +33,7 @@ DIRECTION direction = FORWARD;
 void setup() {
     // put your setup code here, to run once:
     // Start serial
-    Serial.begin(4800);
+    Serial.begin(9600);  // use 4800 for serial plotting
     pinMode(PWM_OUT,OUTPUT);
     pinMode(FWD_PIN,OUTPUT);
     pinMode(REV_PIN,OUTPUT);
@@ -62,22 +62,29 @@ void loop() {
     static int potMeter_volt_prev = 0;
     static DIRECTION direction_prev = direction;
     potMeter_volt = analogRead(POTENTIOMETER_IN);
+
     if (Serial.available()) {
+        while (Serial.available()) {Serial.read();}
         #ifdef MANUAL_PWM
             // Turn off motor if key is pressed
             motor_on = false;
             set_duty_cycle(manual_pwm, 0);
         #else
             direction == FORWARD ? direction = REVERSE : direction = FORWARD;
+            Serial.print("Set Direction to ");
+            Serial.println(direction);
         #endif
     };
     // Only change duty cycle if we actually turn the knob
     if (abs(potMeter_volt - potMeter_volt_prev) > 5 && motor_on) {
         long duty_cycle = map(potMeter_volt, MIN_ANALOG_READ, MAX_ANALOG_READ, MIN_DUTY_CYCLE, MAX_DUTY_CYCLE);
+
         #ifdef MANUAL_PWM
             set_duty_cycle(manual_pwm, duty_cycle);
         #else
             analogWrite(PWM_OUT, duty_cycle * 255 / 100);
+            Serial.println("Set duty cycle:"); 
+            Serial.println(duty_cycle);
         #endif
         #ifndef DEBUG
             #ifdef MANUAL_PWM
@@ -105,6 +112,7 @@ void loop() {
             break;
         }
     }
+    direction_prev = direction;
     
     
     #ifdef DEBUG
@@ -112,7 +120,5 @@ void loop() {
         Serial.print(potMeter_volt);
         Serial.print("\t");
         Serial.print(motor_on);
-        Serial.print("\t");
-        Serial.println(!motor_on);
     #endif
 }
