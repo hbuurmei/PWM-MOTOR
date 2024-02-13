@@ -55,6 +55,7 @@ void setup() {
 
 // Define global variables that we update in the loop
 int potMeter_volt;
+// int new_potMeter_volt;
 bool motor_on = true;
 
 void loop() {
@@ -76,6 +77,7 @@ void loop() {
         #endif
     };
     // Only change duty cycle if we actually turn the knob
+    // Serial.println(abs(potMeter_volt - potMeter_volt_prev) > 5);
     if (abs(potMeter_volt - potMeter_volt_prev) > 5 && motor_on) {
         long duty_cycle = map(potMeter_volt, MIN_ANALOG_READ, MAX_ANALOG_READ, MIN_DUTY_CYCLE, MAX_DUTY_CYCLE);
 
@@ -92,8 +94,9 @@ void loop() {
                 Serial.println(manual_pwm.threshold);
             #endif
         #endif
+        potMeter_volt_prev = potMeter_volt;
     }
-    potMeter_volt_prev = potMeter_volt;
+    
 
     if (direction != direction_prev) {
         switch (direction)
