@@ -3,8 +3,14 @@
 #define USE_TIMER_2         true
 #define POTENTIOMETER_IN    A5
 #define PWM_OUT             9
-#define FWD_PIN             7
-#define REV_PIN             4
+#define STEPPER
+#ifndef STEPPER
+    #define FWD_PIN             7
+    #define REV_PIN             4
+#endif
+#define MIN_FREQ            100  // Hz
+#define MAX_FREQ            200 // Hz
+#define DIR_PIN             4
 #define PWM_FREQ            100. // Hz
 #define CHECK_RESOLUTION    100
 #define PWM_UPDATE_FREQ     PWM_FREQ * CHECK_RESOLUTION // Hz
@@ -30,13 +36,22 @@ enum DIRECTION {
 };
 DIRECTION direction = FORWARD;
 
+void togglePWMOutput() {
+    static int pin_state = false;
+    pin_state = !pin_state;
+    digitalWrite(PWM_OUT, pin_state);
+}
+
 void setup() {
     // put your setup code here, to run once:
     // Start serial
     Serial.begin(9600);  // use 4800 for serial plotting
     pinMode(PWM_OUT,OUTPUT);
-    pinMode(FWD_PIN,OUTPUT);
-    pinMode(REV_PIN,OUTPUT);
+    pinMode(DIR_PIN,OUTPUT);
+    #ifndef STEPPER
+        pinMode(REV_PIN,OUTPUT);
+        pinMode(FWD_PIN,OUTPUT);
+    #endif
 
     #ifdef MANUAL_PWM
         // Populate struct
@@ -50,6 +65,11 @@ void setup() {
         // Init timer ITimer2 for counting/checking
         ITimer2.init();
         ITimer2.setFrequency(PWM_UPDATE_FREQ, []{update_pwm(manual_pwm);});  // use lambda function to call the member function
+    #endif
+
+    #ifdef STEPPER
+        ITimer1.init();
+        ITimer1.setFrequency(10., togglePWMOutput);
     #endif
 }
 
@@ -77,9 +97,12 @@ void loop() {
         #endif
     };
     // Only change duty cycle if we actually turn the knob
-    // Serial.println(abs(potMeter_volt - potMeter_volt_prev) > 5);
     if (abs(potMeter_volt - potMeter_volt_prev) > 5 && motor_on) {
         long duty_cycle = map(potMeter_volt, MIN_ANALOG_READ, MAX_ANALOG_READ, MIN_DUTY_CYCLE, MAX_DUTY_CYCLE);
+        #ifdef STEPPER
+            long frequency = map(potMeter_volt, MIN_ANALOG_READ, MAX_ANALOG_READ, MIN_FREQ, MAX_FREQ);
+            ITimer1.setFrequency(float(frequency), togglePWMOutput);
+        #endif
 
         #ifdef MANUAL_PWM
             set_duty_cycle(manual_pwm, duty_cycle);
@@ -97,24 +120,40 @@ void loop() {
         potMeter_volt_prev = potMeter_volt;
     }
     
-
-    if (direction != direction_prev) {
-        switch (direction)
-        {
-        case FORWARD:
-            digitalWrite(FWD_PIN, HIGH);
-            digitalWrite(REV_PIN, LOW);
-            break;
-        case REVERSE:
-            digitalWrite(FWD_PIN, LOW);
-            digitalWrite(REV_PIN, HIGH);
-            break;
-        default:
-            digitalWrite(FWD_PIN, LOW);
-            digitalWrite(REV_PIN, LOW);
-            break;
+    #ifndef STEPPER
+        if (direction != direction_prev) {
+            switch (direction)
+            {
+            case FORWARD:
+                digitalWrite(FWD_PIN, HIGH);
+                digitalWrite(REV_PIN, LOW);
+                break;
+            case REVERSE:
+                digitalWrite(FWD_PIN, LOW);
+                digitalWrite(REV_PIN, HIGH);
+                break;
+            default:
+                digitalWrite(FWD_PIN, LOW);
+                digitalWrite(REV_PIN, LOW);
+                break;
+            }
         }
-    }
+    #else
+        if (direction != direction_prev) {
+            switch (direction)
+            {
+            case FORWARD:
+                digitalWrite(DIR_PIN, HIGH);
+                break;
+            case REVERSE:
+                digitalWrite(DIR_PIN, LOW);
+                break;
+            default:
+                digitalWrite(DIR_PIN, LOW);
+                break;
+            }
+        }
+    #endif
     direction_prev = direction;
     
     
